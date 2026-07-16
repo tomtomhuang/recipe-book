@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>味之書 · 新增食譜</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+  :root{
+    --cream:#FBF6EE; --card:#FFFFFF; --ink:#2E2A24; --muted:#8A8072;
+    --clay:#C2683F; --clay-soft:#E8CDBE; --sage:#7D8B6A; --line:#EFE6D8;
+    --shadow:0 8px 30px rgba(60,45,30,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:100px}
+  .app{max-width:720px;margin:0 auto;padding:0 16px}
+  /* form top bar */
+  .formbar{display:flex;align-items:center;justify-content:space-between;padding:18px 4px;position:sticky;top:0;background:var(--cream);z-index:40}
+  .formbar .cancel{background:none;border:none;color:var(--muted);font-family:'Noto Sans TC';font-size:15px;cursor:pointer}
+  .formbar .title{font-family:'Noto Serif TC';font-weight:900;font-size:20px}
+  .formbar .save{background:var(--clay);color:#fff;border:none;padding:9px 18px;border-radius:999px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:var(--shadow)}
+  /* cover uploader */
+  .cover-upload{border-radius:18px;overflow:hidden;background:var(--card);border:2px dashed var(--clay-soft);aspect-ratio:16/9;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;margin-bottom:22px;color:var(--muted);position:relative}
+  .cover-upload .cam{font-size:40px;margin-bottom:8px}
+  .cover-upload span{font-size:14px}
+  .cover-upload.filled{border:none}
+  .cover-upload img{width:100%;height:100%;object-fit:cover;position:absolute;inset:0}
+  .cover-upload .change{position:absolute;bottom:12px;right:12px;background:rgba(0,0,0,.55);color:#fff;padding:6px 12px;border-radius:999px;font-size:12px}
+  /* field blocks */
+  .field{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px 20px;margin-bottom:16px;box-shadow:var(--shadow)}
+  .field-label{font-family:'Noto Serif TC';font-weight:700;font-size:16px;margin-bottom:12px;display:flex;align-items:center;gap:8px}
+  .field-label .opt{font-family:'Noto Sans TC';font-weight:400;font-size:12px;color:var(--muted);background:var(--cream);padding:2px 8px;border-radius:6px}
+  input.txt,textarea.txt{width:100%;border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-family:'Noto Sans TC';font-size:15px;background:var(--cream);outline:none;resize:vertical}
+  input.txt:focus,textarea.txt:focus{border-color:var(--clay);background:#fff}
+  .title-input{font-family:'Noto Serif TC';font-size:22px;font-weight:700;border:none;background:transparent;border-bottom:2px solid var(--line);border-radius:0;padding:8px 2px}
+  .title-input:focus{border-bottom-color:var(--clay);background:transparent}
+  /* meta row */
+  .meta-row{display:flex;gap:10px}
+  .meta-row .mini-field{flex:1}
+  .mini-field label{font-size:12px;color:var(--muted);display:block;margin-bottom:5px}
+  .mini-field input{width:100%;border:1px solid var(--line);border-radius:10px;padding:9px 12px;font-size:14px;background:var(--cream);outline:none;text-align:center}
+  /* tags */
+  .tag-input-area{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .tag-pill{background:var(--clay-soft);color:var(--clay);padding:6px 12px;border-radius:999px;font-size:13px;display:flex;align-items:center;gap:6px}
+  .tag-pill .x{cursor:pointer;font-weight:700;opacity:.7}
+  .tag-add{border:1px dashed var(--clay-soft);color:var(--muted);padding:6px 12px;border-radius:999px;font-size:13px;cursor:pointer;background:none}
+  .tag-suggest{margin-top:10px;font-size:12px;color:var(--muted)}
+  .tag-suggest span{cursor:pointer;color:var(--sage);margin-right:10px}
+  /* ingredient rows */
+  .ing-row{display:flex;gap:8px;align-items:flex-start;margin-bottom:10px;padding:12px;background:var(--cream);border-radius:12px;position:relative}
+  .ing-row .col-name{flex:2;position:relative}
+  .ing-row .col-amt{flex:1}
+  .ing-row .col-unit{width:74px}
+  .ing-row input,.ing-row select{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:14px;background:#fff;outline:none;font-family:inherit}
+  .ing-row input:focus{border-color:var(--clay)}
+  .ing-note-input{margin-top:8px}
+  .ing-note-input input{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;font-size:13px;background:#fff;outline:none;font-style:italic;color:var(--muted)}
+  .ing-del{position:absolute;top:-8px;right:-8px;background:var(--clay);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  /* autocomplete dropdown */
+  .autocomplete{position:absolute;top:100%;left:0;right:0;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:30;margin-top:4px;max-height:230px;overflow-y:auto;display:none}
+  .autocomplete.show{display:block}
+  .ac-cat{font-size:11px;color:var(--sage);background:#EEF1E8;padding:4px 12px;font-weight:700;position:sticky;top:0}
+  .ac-item{padding:10px 12px;font-size:14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center}
+  .ac-item:hover{background:var(--clay-soft)}
+  .ac-item .u{font-size:12px;color:var(--muted)}
+  .ac-new{padding:10px 12px;font-size:14px;color:var(--clay);cursor:pointer;border-top:1px dashed var(--line)}
+  .add-line-btn{width:100%;border:1px dashed var(--clay-soft);background:none;color:var(--clay);padding:12px;border-radius:12px;font-size:14px;font-weight:700;cursor:pointer;margin-top:4px}
+  /* method steps */
+  .step-edit{display:flex;gap:12px;margin-bottom:14px;align-items:flex-start}
+  .step-badge{flex-shrink:0;width:30px;height:30px;border-radius:50%;background:var(--clay);color:#fff;font-family:'Noto Serif TC';font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:4px}
+  .step-content{flex:1}
+  .step-content textarea{width:100%;border:1px solid var(--line);border-radius:10px;padding:11px 13px;font-size:14px;background:var(--cream);outline:none;resize:vertical;min-height:60px;font-family:inherit}
+  .step-content textarea:focus{border-color:var(--clay);background:#fff}
+  .step-photo-btn{margin-top:8px;display:inline-flex;align-items:center;gap:6px;border:1px dashed var(--clay-soft);color:var(--muted);background:none;padding:8px 12px;border-radius:10px;font-size:13px;cursor:pointer}
+  .step-photo-preview{margin-top:8px;position:relative;width:130px;height:98px;border-radius:10px;overflow:hidden}
+  .step-photo-preview img{width:100%;height:100%;object-fit:cover}
+  .step-photo-preview .rm{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;width:20px;height:20px;border-radius:50%;font-size:12px;cursor:pointer}
+  .step-del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:18px;margin-top:6px}
+  /* refs */
+  .ref-row{display:flex;gap:8px;margin-bottom:10px}
+  .ref-row input{flex:1;border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;background:var(--cream);outline:none}
+  .ref-row input:focus{border-color:var(--clay);background:#fff}
+  .ref-row .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:16px}
+  .proto-badge{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:var(--ink);color:#fff;padding:8px 18px;border-radius:999px;font-size:12px;opacity:.9;z-index:99}
+  .hint{font-size:12px;color:var(--muted);margin-top:8px;line-height:1.5}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="formbar">
+    <button class="cancel">取消</button>
+    <div class="title">新增食譜</div>
+    <button class="save">儲存</button>
+  </div>
+
+  <!-- Cover photo -->
+  <div class="cover-upload filled" onclick="return false">
+    <img src="https://images.unsplash.com/photo-1602273660127-a0000560a4c1?w=800&q=80">
+    <div class="change">📷 更換封面相片</div>
+  </div>
+
+  <!-- Title -->
+  <div class="field">
+    <input class="txt title-input" placeholder="食譜名稱（例如：柱侯炆牛腩）" value="柱侯炆牛腩">
+  </div>
+
+  <!-- Meta -->
+  <div class="field">
+    <div class="meta-row">
+      <div class="mini-field"><label>準備時間</label><input value="20 分鐘"></div>
+      <div class="mini-field"><label>烹煮時間</label><input value="2 小時"></div>
+      <div class="mini-field"><label>份量（人）</label><input value="4"></div>
+    </div>
+  </div>
+
+  <!-- Tags -->
+  <div class="field">
+    <div class="field-label">標籤 <span class="opt">可加多個</span></div>
+    <div class="tag-input-area">
+      <span class="tag-pill">牛肉 <span class="x">✕</span></span>
+      <span class="tag-pill">炆煮 <span class="x">✕</span></span>
+      <span class="tag-pill">冬天 <span class="x">✕</span></span>
+      <button class="tag-add">＋ 加標籤</button>
+    </div>
+    <div class="tag-suggest">常用：<span>雞肉</span><span>海鮮</span><span>蒸</span><span>湯品</span><span>宴客</span><span>快手菜</span></div>
+  </div>
+
+  <!-- Ingredients -->
+  <div class="field">
+    <div class="field-label">食材</div>
+    <div id="ingList"></div>
+    <button class="add-line-btn" onclick="addIng()">＋ 加食材</button>
+    <div class="hint">開始打字會顯示以前用過的食材（按分類排列），揀完會自動填單位；亦可新增從未用過的食材。每項食材可加註解（選填）。</div>
+  </div>
+
+  <!-- Method -->
+  <div class="field">
+    <div class="field-label">製作方法</div>
+    <div id="stepList"></div>
+    <button class="add-line-btn" onclick="addStep()">＋ 加步驟</button>
+  </div>
+
+  <!-- References -->
+  <div class="field">
+    <div class="field-label">靈感來源 <span class="opt">選填</span></div>
+    <div id="refList">
+      <div class="ref-row"><input value="https://youtube.com/... 阿婆的柱侯牛腩"><button class="del">✕</button></div>
+    </div>
+    <button class="add-line-btn" onclick="addRef()">＋ 加連結</button>
+  </div>
+
+  <!-- Notes -->
+  <div class="field">
+    <div class="field-label">心得 · 筆記 <span class="opt">選填</span></div>
+    <textarea class="txt" rows="3" placeholder="任何額外備註、心得或改良建議…">冰糖下次減半。高壓鍋 45 分鐘即可。</textarea>
+  </div>
+</div>
+
+<div class="proto-badge">原型 · 新增食譜流程</div>
+
+<script>
+// existing ingredient library (grouped)
+const library={
+  '肉類':[{n:'牛腩',u:'克'},{n:'雞肉',u:'克'},{n:'雞髀',u:'隻'},{n:'豬肉',u:'克'},{n:'排骨',u:'克'}],
+  '海鮮':[{n:'蝦',u:'隻'},{n:'魚',u:'條'}],
+  '蔬菜':[{n:'薑',u:'片'},{n:'蔥',u:'條'},{n:'蒜',u:'瓣'},{n:'洋蔥',u:'個'}],
+  '醬料':[{n:'柱侯醬',u:'湯匙'},{n:'磨豉醬',u:'湯匙'},{n:'老抽',u:'湯匙'},{n:'生抽',u:'湯匙'}],
+  '調味':[{n:'冰糖',u:'克'},{n:'紹興酒',u:'湯匙'},{n:'鹽',u:'茶匙'},{n:'糖',u:'茶匙'}],
+};
+const units=['克','公斤','毫升','湯匙','茶匙','杯','個','片','條','隻','瓣','少許','適量'];
+let ingRows=[];
+
+function ingRowHTML(id,val={}){
+  return `<div class="ing-row" data-id="${id}">
+    <div class="col-name">
+      <input class="ing-name-input" placeholder="食材名稱" value="${val.n||''}" oninput="showAuto(${id},this.value)" onblur="setTimeout(()=>hideAuto(${id}),150)">
+      <div class="autocomplete" id="ac-${id}"></div>
+    </div>
+    <div class="col-amt"><input placeholder="份量" value="${val.a||''}"></div>
+    <div class="col-unit"><input placeholder="單位" value="${val.u||''}" list="unitlist"></div>
+    <button class="ing-del" onclick="delIng(${id})">✕</button>
+    <div class="ing-note-input" style="flex-basis:100%"><input placeholder="註解（選填）例如：需要清遠雞 / 雞上腿肉" value="${val.note||''}"></div>
+  </div>`;
+}
+function renderIngs(){
+  document.getElementById('ingList').innerHTML=ingRows.map(r=>ingRowHTML(r.id,r.val)).join('');
+}
+let ingId=0;
+function addIng(val){ingRows.push({id:++ingId,val:val||{}});renderIngs();}
+function delIng(id){ingRows=ingRows.filter(r=>r.id!==id);renderIngs();}
+function showAuto(id,q){
+  const ac=document.getElementById('ac-'+id);
+  if(!q){ac.classList.remove('show');return;}
+  let html='';let found=false;
+  for(const cat in library){
+    const matches=library[cat].filter(i=>i.n.includes(q));
+    if(matches.length){found=true;html+=`<div class="ac-cat">${cat}</div>`+matches.map(m=>`<div class="ac-item" onmousedown="pick(${id},'${m.n}','${m.u}')"><span>${m.n}</span><span class="u">預設 ${m.u}</span></div>`).join('');}
+  }
+  html+=`<div class="ac-new" onmousedown="pick(${id},'${q}','')">＋ 新增「${q}」為新食材</div>`;
+  ac.innerHTML=html;ac.classList.add('show');
+}
+function hideAuto(id){document.getElementById('ac-'+id).classList.remove('show');}
+function pick(id,name,unit){
+  const row=document.querySelector(`.ing-row[data-id="${id}"]`);
+  row.querySelector('.ing-name-input').value=name;
+  if(unit)row.querySelector('.col-unit input').value=unit;
+  hideAuto(id);
+  row.querySelector('.col-amt input').focus();
+}
+// seed sample ingredients
+[{n:'牛腩',a:'600',u:'克',note:'選牛坑腩，肥瘦相間'},{n:'柱侯醬',a:'2',u:'湯匙'},{n:'薑',a:'4',u:'片',note:'去皮拍扁'}].forEach(v=>addIng(v));
+
+// steps
+let steps=[];let stepId=0;
+function stepHTML(id,val={}){
+  const idx=steps.findIndex(s=>s.id===id)+1;
+  return `<div class="step-edit" data-id="${id}">
+    <div class="step-badge">${idx}</div>
+    <div class="step-content">
+      <textarea placeholder="描述這個步驟…">${val.t||''}</textarea>
+      ${val.photo?`<div class="step-photo-preview"><img src="${val.photo}"><button class="rm" onclick="rmPhoto(${id})">✕</button></div>`:`<button class="step-photo-btn" onclick="fakePhoto(${id})">📷 加相片（選填）</button>`}
+    </div>
+    <button class="step-del" onclick="delStep(${id})">🗑</button>
+  </div>`;
+}
+function renderSteps(){document.getElementById('stepList').innerHTML=steps.map(s=>stepHTML(s.id,s.val)).join('');}
+function addStep(val){steps.push({id:++stepId,val:val||{}});renderSteps();}
+function delStep(id){steps=steps.filter(s=>s.id!==id);renderSteps();}
+function fakePhoto(id){const s=steps.find(s=>s.id===id);s.val.photo='https://images.unsplash.com/photo-1544025162-d76694265947?w=300&q=80';renderSteps();}
+function rmPhoto(id){const s=steps.find(s=>s.id===id);s.val.photo=null;renderSteps();}
+[{t:'牛腩切件，冷水下鍋汆水，去除血水後洗淨備用。',photo:'https://images.unsplash.com/photo-1544025162-d76694265947?w=300&q=80'},{t:'爆香薑蔥蒜，下柱侯醬及磨豉醬炒香。'}].forEach(v=>addStep(v));
+
+// refs
+function addRef(){const d=document.createElement('div');d.className='ref-row';d.innerHTML='<input placeholder="貼上網址或影片連結"><button class="del" onclick="this.parentElement.remove()">✕</button>';document.getElementById('refList').appendChild(d);}
+document.querySelectorAll('#refList .del').forEach(b=>b.onclick=()=>b.parentElement.remove());
+</script>
+<datalist id="unitlist">
+  <option>克</option><option>公斤</option><option>毫升</option><option>湯匙</option><option>茶匙</option><option>杯</option><option>個</option><option>片</option><option>條</option><option>隻</option><option>瓣</option><option>少許</option><option>適量</option>
+</datalist>
+</body>
+</html>

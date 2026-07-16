@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>味之書 · 精修版</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap');
+  :root{
+    --cream:#FBF6EE; --card:#FFFFFF; --ink:#2E2A24; --muted:#8A8072;
+    --clay:#C2683F; --clay-soft:#E8CDBE; --sage:#7D8B6A; --line:#EFE6D8;
+    --shadow:0 8px 30px rgba(60,45,30,.08);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Noto Sans TC',sans-serif;background:var(--cream);color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:80px}
+  .app{max-width:960px;margin:0 auto;padding:0 16px}
+  header{display:flex;align-items:center;justify-content:space-between;padding:22px 4px 18px}
+  .logo{font-family:'Noto Serif TC',serif;font-weight:900;font-size:26px;letter-spacing:2px;color:var(--clay)}
+  .logo span{color:var(--ink)}
+  .logo small{display:block;font-family:'Noto Sans TC';font-weight:400;font-size:11px;letter-spacing:3px;color:var(--muted);margin-top:2px}
+  .searchbar{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow);margin-bottom:16px}
+  .searchbar input{border:none;outline:none;flex:1;font-family:'Noto Sans TC';font-size:15px;background:transparent}
+  .tagrow{display:flex;gap:8px;overflow-x:auto;padding-bottom:6px;margin-bottom:22px;-webkit-overflow-scrolling:touch}
+  .tagrow::-webkit-scrollbar{display:none}
+  .chip{white-space:nowrap;background:var(--card);border:1px solid var(--line);color:var(--muted);padding:7px 15px;border-radius:999px;font-size:13px;cursor:pointer;transition:.15s}
+  .chip.active,.chip:hover{background:var(--clay-soft);color:var(--clay);border-color:var(--clay-soft)}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:20px;padding-bottom:24px}
+  .recipe-card{background:var(--card);border-radius:18px;overflow:hidden;box-shadow:var(--shadow);cursor:pointer;transition:transform .18s;border:1px solid var(--line);position:relative}
+  .recipe-card:hover{transform:translateY(-4px)}
+  .thumb{aspect-ratio:4/3;width:100%;object-fit:cover;display:block}
+  .fav-heart{position:absolute;top:10px;right:10px;background:rgba(255,255,255,.9);width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:15px}
+  .card-body{padding:14px 16px 18px}
+  .card-title{font-family:'Noto Serif TC';font-weight:700;font-size:18px;margin-bottom:8px}
+  .card-tags{display:flex;gap:6px;flex-wrap:wrap}
+  .mini-tag{font-size:11px;color:var(--sage);background:#EEF1E8;padding:3px 8px;border-radius:6px}
+  .card-meta{margin-top:10px;font-size:12px;color:var(--muted);display:flex;gap:12px}
+  .view{display:none}.view.active{display:block;animation:fade .3s}
+  .list-view.hidden{display:none}
+  @keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+  .back{background:none;border:none;color:var(--clay);font-family:'Noto Sans TC';font-weight:700;font-size:15px;cursor:pointer;padding:16px 0;display:flex;align-items:center;gap:6px}
+  .hero{border-radius:20px;overflow:hidden;box-shadow:var(--shadow);margin-bottom:22px;position:relative}
+  .hero img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}
+  .hero-tags{position:absolute;bottom:16px;left:16px;display:flex;gap:8px;flex-wrap:wrap}
+  .hero-tags .mini-tag{background:rgba(255,255,255,.92);color:var(--clay);font-weight:500}
+  .detail-title{font-family:'Noto Serif TC';font-weight:900;font-size:34px;margin-bottom:6px}
+  .detail-sub{color:var(--muted);margin-bottom:24px;display:flex;gap:18px;font-size:14px;flex-wrap:wrap}
+  .detail-sub b{color:var(--ink)}
+  .section{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px 24px;margin-bottom:18px;box-shadow:var(--shadow)}
+  .section h3{font-family:'Noto Serif TC';font-size:20px;margin-bottom:16px;display:flex;align-items:center;gap:10px}
+  .section h3::before{content:'';width:5px;height:20px;background:var(--clay);border-radius:3px}
+  .servings{display:flex;align-items:center;gap:12px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px dashed var(--line)}
+  .servings label{font-size:14px;color:var(--muted)}
+  .stepper{display:flex;align-items:center;gap:14px;background:var(--cream);border-radius:999px;padding:4px}
+  .stepper button{width:30px;height:30px;border-radius:50%;border:none;background:var(--card);color:var(--clay);font-size:18px;cursor:pointer;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+  .stepper span{font-weight:700;min-width:70px;text-align:center;font-size:14px}
+  /* ingredient with note */
+  .ingredient{display:flex;justify-content:space-between;align-items:flex-start;padding:12px 0;border-bottom:1px solid var(--line);gap:12px}
+  .ingredient:last-child{border:none}
+  .ing-left{flex:1}
+  .ing-name{font-size:15px}
+  .ing-cat{font-size:11px;color:var(--sage);background:#EEF1E8;padding:2px 8px;border-radius:5px;margin-left:8px;vertical-align:middle}
+  .ing-note{display:block;font-size:12.5px;color:var(--muted);margin-top:4px;font-style:italic}
+  .ing-note::before{content:'※ '}
+  .ing-amt{font-weight:700;color:var(--clay);font-size:15px;white-space:nowrap;padding-top:1px}
+  /* method step with photo */
+  .step{display:flex;gap:16px;margin-bottom:22px}
+  .step-num{flex-shrink:0;width:32px;height:32px;border-radius:50%;background:var(--clay);color:#fff;font-family:'Noto Serif TC';font-weight:700;display:flex;align-items:center;justify-content:center}
+  .step-body{flex:1}
+  .step-text{padding-top:4px;line-height:1.7;font-size:15px}
+  .step-photo{margin-top:12px;border-radius:12px;width:100%;max-width:340px;aspect-ratio:4/3;object-fit:cover;display:block;box-shadow:0 3px 12px rgba(0,0,0,.08)}
+  .ref-link{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--cream);border-radius:12px;margin-bottom:10px;text-decoration:none;color:var(--ink);font-size:14px}
+  .ref-link:hover{background:var(--clay-soft)}
+  .note-box{background:#FFF9F0;border:1px dashed var(--clay-soft);border-radius:12px;padding:16px;line-height:1.7;font-size:14px;color:#5a5040}
+  /* bottom nav */
+  .bottomnav{position:fixed;bottom:0;left:0;right:0;background:var(--card);border-top:1px solid var(--line);display:flex;justify-content:space-around;padding:9px 0 13px;z-index:60;box-shadow:0 -4px 20px rgba(60,45,30,.06)}
+  .navitem{display:flex;flex-direction:column;align-items:center;gap:3px;color:var(--muted);font-size:11px;cursor:pointer}
+  .navitem.active{color:var(--clay)}
+  .navitem .ic{font-size:21px}
+  .navadd{background:var(--clay);color:#fff;width:52px;height:52px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;margin-top:-24px;box-shadow:0 6px 16px rgba(194,104,63,.35);cursor:pointer}
+  .proto-badge{position:fixed;top:12px;right:12px;background:var(--ink);color:#fff;padding:6px 14px;border-radius:999px;font-size:11px;opacity:.85;z-index:99}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="list-view">
+    <header>
+      <div class="logo">味<span>之書</span><small>OUR FAMILY RECIPES</small></div>
+    </header>
+    <div class="searchbar"><span>🔍</span><input placeholder="搜尋食譜、食材或標籤…"></div>
+    <div class="tagrow">
+      <div class="chip active">全部</div><div class="chip">⭐ 最愛</div><div class="chip">牛肉</div>
+      <div class="chip">雞肉</div><div class="chip">海鮮</div><div class="chip">炆煮</div>
+      <div class="chip">蒸</div><div class="chip">冬天</div><div class="chip">湯品</div><div class="chip">甜品</div>
+    </div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+  <div class="view" id="detail">
+    <button class="back" onclick="showList()">← 返回全部食譜</button>
+    <div class="hero">
+      <img src="https://images.unsplash.com/photo-1602273660127-a0000560a4c1?w=900&q=80" alt="">
+      <div class="hero-tags"><span class="mini-tag">牛肉</span><span class="mini-tag">炆煮</span><span class="mini-tag">冬天</span></div>
+    </div>
+    <h1 class="detail-title">柱侯炆牛腩</h1>
+    <div class="detail-sub"><span>⏱ 準備 <b>20 分鐘</b></span><span>🔥 烹煮 <b>2 小時</b></span><span>👤 <b>4 人份</b></span></div>
+
+    <div class="section">
+      <h3>食材</h3>
+      <div class="servings">
+        <label>份量調整</label>
+        <div class="stepper"><button onclick="scale(-1)">−</button><span id="serv">4 人份</span><button onclick="scale(1)">＋</button></div>
+      </div>
+      <div id="ings"></div>
+    </div>
+
+    <div class="section">
+      <h3>製作方法</h3>
+      <div class="step"><div class="step-num">1</div><div class="step-body"><div class="step-text">牛腩切件，冷水下鍋汆水，去除血水後洗淨備用。</div><img class="step-photo" src="https://images.unsplash.com/photo-1544025162-d76694265947?w=400&q=80"></div></div>
+      <div class="step"><div class="step-num">2</div><div class="step-body"><div class="step-text">熱鍋下油，爆香薑蔥蒜，加入柱侯醬及磨豉醬炒香。</div><img class="step-photo" src="https://images.unsplash.com/photo-1512058564366-18510be2db19?w=400&q=80"></div></div>
+      <div class="step"><div class="step-num">3</div><div class="step-body"><div class="step-text">下牛腩翻炒上色，加入紹興酒、老抽、冰糖，加水蓋過材料。（此步驟未加相片）</div></div></div>
+      <div class="step"><div class="step-num">4</div><div class="step-body"><div class="step-text">大火煮滾後轉小火，加蓋炆約 1.5–2 小時至牛腩軟腍即可。</div><img class="step-photo" src="https://images.unsplash.com/photo-1547592166-23ac45744acd?w=400&q=80"></div></div>
+    </div>
+
+    <div class="section">
+      <h3>靈感來源</h3>
+      <a class="ref-link" href="#">🎬 YouTube · 阿婆的柱侯牛腩做法</a>
+      <a class="ref-link" href="#">🌐 madewithlau.com · Braised Beef Brisket</a>
+    </div>
+
+    <div class="section">
+      <h3>心得 · 筆記</h3>
+      <div class="note-box">今次冰糖落多咗少少，下次減半。用高壓鍋 45 分鐘都得，慳好多時間。配白飯或者伊麵都一流 👍</div>
+    </div>
+  </div>
+</div>
+
+<div class="bottomnav">
+  <div class="navitem active"><span class="ic">🏠</span>食譜</div>
+  <div class="navitem"><span class="ic">🔍</span>搜尋</div>
+  <div class="navadd">＋</div>
+  <div class="navitem"><span class="ic">⭐</span>最愛</div>
+  <div class="navitem"><span class="ic">👤</span>我的</div>
+</div>
+
+<div class="proto-badge">精修版 · 溫暖廚房＋底部導覽</div>
+
+<script>
+const recipes=[
+  {t:'柱侯炆牛腩',img:'https://images.unsplash.com/photo-1602273660127-a0000560a4c1?w=500&q=80',tags:['牛肉','炆煮','冬天'],time:'2小時',serv:'4人',fav:true},
+  {t:'豉汁蒸排骨',img:'https://images.unsplash.com/photo-1585032226651-759b368d7246?w=500&q=80',tags:['豬肉','蒸'],time:'30分鐘',serv:'3人'},
+  {t:'蒜蓉蒸蝦',img:'https://images.unsplash.com/photo-1625944230945-1b7dd3b949ab?w=500&q=80',tags:['海鮮','蒸','宴客'],time:'20分鐘',serv:'4人',fav:true},
+  {t:'番茄薯仔牛肉湯',img:'https://images.unsplash.com/photo-1547592166-23ac45744acd?w=500&q=80',tags:['牛肉','湯品','冬天'],time:'1.5小時',serv:'6人'},
+  {t:'白切雞',img:'https://images.unsplash.com/photo-1518492104633-130d0cc84637?w=500&q=80',tags:['雞肉','宴客'],time:'40分鐘',serv:'4人'},
+  {t:'楊枝甘露',img:'https://images.unsplash.com/photo-1488900128323-21503983a07e?w=500&q=80',tags:['甜品','夏天'],time:'20分鐘',serv:'4人',fav:true},
+];
+// ingredient: note is optional
+const base=[
+  {n:'牛腩',c:'肉類',a:600,u:'克',note:'選牛坑腩，肥瘦相間'},
+  {n:'柱侯醬',c:'醬料',a:2,u:'湯匙',note:''},
+  {n:'磨豉醬',c:'醬料',a:1,u:'湯匙',note:''},
+  {n:'薑',c:'蔬菜',a:4,u:'片',note:'去皮拍扁'},
+  {n:'蔥',c:'蔬菜',a:2,u:'條',note:''},
+  {n:'冰糖',c:'調味',a:20,u:'克',note:''},
+  {n:'紹興酒',c:'調味',a:2,u:'湯匙',note:''},
+  {n:'老抽',c:'醬料',a:1,u:'湯匙',note:'調色用'},
+];
+let servings=4;
+const grid=document.getElementById('grid');
+recipes.forEach(r=>{
+  const c=document.createElement('div');c.className='recipe-card';c.onclick=showDetail;
+  c.innerHTML=`<img class="thumb" src="${r.img}" onerror="this.src='https://images.unsplash.com/photo-1495521821757-a1efb6729352?w=500&q=80'">
+    ${r.fav?'<div class="fav-heart">❤️</div>':''}
+    <div class="card-body"><div class="card-title">${r.t}</div>
+    <div class="card-tags">${r.tags.map(t=>`<span class="mini-tag">${t}</span>`).join('')}</div>
+    <div class="card-meta"><span>⏱ ${r.time}</span><span>👤 ${r.serv}</span></div></div>`;
+  grid.appendChild(c);
+});
+function renderIngs(){
+  const f=servings/4;
+  document.getElementById('ings').innerHTML=base.map(i=>{
+    let amt=Math.round(i.a*f*10)/10;
+    return `<div class="ingredient"><div class="ing-left"><span class="ing-name">${i.n}<span class="ing-cat">${i.c}</span></span>${i.note?`<span class="ing-note">${i.note}</span>`:''}</div><div class="ing-amt">${amt} ${i.u}</div></div>`;
+  }).join('');
+}
+function scale(d){servings=Math.max(1,servings+d);document.getElementById('serv').textContent=servings+' 人份';renderIngs();}
+function showDetail(){document.querySelector('.list-view').classList.add('hidden');document.getElementById('detail').classList.add('active');window.scrollTo(0,0);renderIngs();}
+function showList(){document.querySelector('.list-view').classList.remove('hidden');document.getElementById('detail').classList.remove('active');window.scrollTo(0,0);}
+</script>
+</body>
+</html>

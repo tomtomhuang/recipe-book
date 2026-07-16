@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#FBF6EE">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="味之書">
+<title>味之書 · 我的食譜簿</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;500;700;900&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+<div class="app" id="app">
+  <!-- ===== 清單（首頁） ===== -->
+  <div class="view" id="view-list">
+    <header>
+      <div class="logo">味<span>之書</span><small>OUR FAMILY RECIPES</small></div>
+    </header>
+    <div class="searchbar"><span>🔍</span><input id="searchInput" placeholder="搜尋食譜、食材或標籤…"></div>
+    <div class="tagrow" id="tagRow"></div>
+    <div class="grid" id="grid"></div>
+    <div class="empty-msg" id="listEmpty" hidden>未有食譜。按下面「＋」開始新增第一道菜！</div>
+  </div>
+
+  <!-- ===== 食譜詳情 ===== -->
+  <div class="view" id="view-detail"></div>
+
+  <!-- ===== 新增／編輯 ===== -->
+  <div class="view" id="view-edit"></div>
+
+  <!-- ===== 我的（設定） ===== -->
+  <div class="view" id="view-settings"></div>
+
+  <div class="offline-banner" id="offlineBanner" hidden>📴 目前離線，顯示先前載入的內容</div>
+</div>
+
+<!-- 底部導覽 -->
+<nav class="bottomnav">
+  <div class="navitem" data-nav="list"><span class="ic">🏠</span>食譜</div>
+  <div class="navitem" data-nav="search"><span class="ic">🔍</span>搜尋</div>
+  <div class="navadd" id="navAdd" hidden>＋</div>
+  <div class="navitem" data-nav="fav"><span class="ic">⭐</span>最愛</div>
+  <div class="navitem" data-nav="settings"><span class="ic">👤</span>我的</div>
+</nav>
+
+<div class="toast" id="toast" hidden></div>
+
+<datalist id="unitlist"></datalist>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

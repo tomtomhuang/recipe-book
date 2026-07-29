@@ -1,5 +1,5 @@
 /* 味之書 service worker — app shell + offline viewing of loaded recipes */
-const VERSION = 'v1';
+const VERSION = 'v2';
 const SHELL_CACHE = 'shell-' + VERSION;
 const DATA_CACHE = 'data-' + VERSION;
 const IMG_CACHE = 'img-' + VERSION;

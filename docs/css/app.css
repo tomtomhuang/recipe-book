@@ -111,8 +111,10 @@ input.txt:focus,textarea.txt:focus{border-color:var(--clay);background:#fff}
 .ing-row .col-unit{width:74px}
 .ing-row input{width:100%;border:1px solid var(--line);border-radius:8px;padding:9px 10px;font-size:14px;background:#fff;outline:none;font-family:inherit}
 .ing-row input:focus{border-color:var(--clay)}
-.ing-note-input{flex-basis:100%}
-.ing-note-input input{font-style:italic;color:var(--muted);font-size:13px;padding:8px 10px}
+.ing-note-input{flex-basis:100%;display:flex;gap:8px;align-items:stretch}
+.ing-note-input input{font-style:italic;color:var(--muted);font-size:13px;padding:8px 10px;flex:1;width:auto}
+.ing-cat-sel{border:1px solid var(--line);border-radius:8px;padding:8px 6px;font-size:13px;background:#fff;font-family:inherit;color:var(--ink);outline:none;max-width:112px}
+.ing-cat-sel:focus{border-color:var(--clay)}
 .ing-del{position:absolute;top:-8px;right:-8px;background:var(--clay);color:#fff;border:none;width:22px;height:22px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center}
 .autocomplete{position:absolute;top:100%;left:0;right:-90px;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:var(--shadow);z-index:30;margin-top:4px;max-height:230px;overflow-y:auto;display:none}
 .autocomplete.show{display:block}

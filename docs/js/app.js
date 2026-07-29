@@ -271,6 +271,9 @@ async function renderEdit(id) {
     id: id ? Number(id) : null, title: '', prep: '', cook: '', servings: '',
     coverUrl: null, coverBlob: null, tags: [], ings: [], steps: [], refs: [], notes: '',
   };
+  const otherCatId = S.categories.find(c => c.name === '其他')?.id ?? null;
+  const libCatId = libId => S.library.find(x => x.id === libId)?.category_id ?? otherCatId;
+  const blankIng = () => ({ name: '', amt: '', unit: '', note: '', libId: null, catId: otherCatId, catTouched: false });
   if (id) {
     const { data: r, error } = await sb.from('recipes')
       .select('*, recipe_tags(tags(name)), recipe_ingredients(*), recipe_steps(*), recipe_references(*)')
@@ -280,13 +283,13 @@ async function renderEdit(id) {
     E.servings = r.base_servings || ''; E.coverUrl = r.cover_photo_url; E.notes = r.notes || '';
     E.tags = r.recipe_tags.map(rt => rt.tags?.name).filter(Boolean);
     E.ings = r.recipe_ingredients.sort((a, b) => a.sort_order - b.sort_order)
-      .map(i => ({ name: i.name, amt: i.amount != null ? String(i.amount) : (i.amount_text || ''), unit: i.unit || '', note: i.note || '', libId: i.library_ingredient_id }));
+      .map(i => ({ name: i.name, amt: i.amount != null ? String(i.amount) : (i.amount_text || ''), unit: i.unit || '', note: i.note || '', libId: i.library_ingredient_id, catId: libCatId(i.library_ingredient_id), catTouched: false }));
     E.steps = r.recipe_steps.sort((a, b) => a.sort_order - b.sort_order)
       .map(s => ({ text: s.text, photoUrl: s.photo_url, photoBlob: null }));
     E.refs = r.recipe_references.sort((a, b) => a.sort_order - b.sort_order)
       .map(f => ({ url: f.url, label: f.label || '' }));
   }
-  if (!E.ings.length) E.ings.push({ name: '', amt: '', unit: '', note: '', libId: null });
+  if (!E.ings.length) E.ings.push(blankIng());
   if (!E.steps.length) E.steps.push({ text: '', photoUrl: null, photoBlob: null });
   S.edit = E;
 
@@ -316,7 +319,7 @@ async function renderEdit(id) {
       <div class="field-label">食材</div>
       <div id="ingList"></div>
       <button class="add-line-btn" id="addIng">＋ 加食材</button>
-      <div class="hint">開始打字會顯示以前用過的食材（按分類排列），揀完會自動填單位；亦可新增從未用過的食材。每項食材可加註解（選填）。</div>
+      <div class="hint">開始打字會顯示以前用過的食材（按分類排列），揀完會自動填單位；亦可新增從未用過的食材。每項食材可加註解（選填）。更改食材的分類會套用到所有使用該食材的食譜。</div>
     </div>
     <div class="field">
       <div class="field-label">製作方法</div>
@@ -351,7 +354,7 @@ async function renderEdit(id) {
 
   renderTags(); renderIngRows(); renderStepRows(); renderRefRows();
 
-  $('#addIng').onclick = () => { E.ings.push({ name: '', amt: '', unit: '', note: '', libId: null }); renderIngRows(); };
+  $('#addIng').onclick = () => { E.ings.push(blankIng()); renderIngRows(); };
   $('#addStep').onclick = () => { E.steps.push({ text: '', photoUrl: null, photoBlob: null }); renderStepRows(); };
   $('#addRef').onclick = () => { E.refs.push({ url: '', label: '' }); renderRefRows(); };
   $('#edCancel').onclick = () => { if (confirm('放棄目前的修改？')) history.back(); };
@@ -389,7 +392,11 @@ async function renderEdit(id) {
         <div class="col-amt"><input class="ing-amt-in" placeholder="份量" value="${esc(g.amt)}"></div>
         <div class="col-unit"><input class="ing-unit" placeholder="單位" value="${esc(g.unit)}" list="unitlist"></div>
         <button class="ing-del">✕</button>
-        <div class="ing-note-input"><input class="ing-note-in" placeholder="註解（選填）例如：需要清遠雞 / 雞上腿肉" value="${esc(g.note)}"></div>
+        <div class="ing-note-input">
+          <select class="ing-cat-sel" title="食材分類">${S.categories.map(c =>
+            `<option value="${c.id}"${c.id === g.catId ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+          <input class="ing-note-in" placeholder="註解（選填）例如：需要清遠雞 / 雞上腿肉" value="${esc(g.note)}">
+        </div>
       </div>`).join('');
     $$('#ingList .ing-row').forEach(row => {
       const i = +row.dataset.i, g = E.ings[i];
@@ -399,7 +406,8 @@ async function renderEdit(id) {
       $('.ing-amt-in', row).oninput = e => g.amt = e.target.value;
       $('.ing-unit', row).oninput = e => g.unit = e.target.value;
       $('.ing-note-in', row).oninput = e => g.note = e.target.value;
-      $('.ing-del', row).onclick = () => { E.ings.splice(i, 1); if (!E.ings.length) E.ings.push({ name: '', amt: '', unit: '', note: '', libId: null }); renderIngRows(); };
+      $('.ing-cat-sel', row).onchange = e => { g.catId = +e.target.value; g.catTouched = true; };
+      $('.ing-del', row).onclick = () => { E.ings.splice(i, 1); if (!E.ings.length) E.ings.push(blankIng()); renderIngRows(); };
       function showAuto() {
         const q = nameIn.value.trim();
         if (!q) { ac.classList.remove('show'); return; }
@@ -420,6 +428,8 @@ async function renderEdit(id) {
           e.preventDefault();
           const lib = S.library.find(x => x.id === +it.dataset.id);
           g.name = lib.name; g.libId = lib.id;
+          g.catId = lib.category_id ?? otherCatId; g.catTouched = false;
+          if (g.catId != null) $('.ing-cat-sel', row).value = String(g.catId);
           if (lib.default_unit) { g.unit = lib.default_unit; $('.ing-unit', row).value = lib.default_unit; }
           nameIn.value = lib.name; ac.classList.remove('show');
           $('.ing-amt-in', row).focus();
@@ -521,18 +531,34 @@ async function renderEdit(id) {
         if (error) throw error;
       }
 
-      // 4. ingredients — save new ones to library, replace rows
+      // 4. ingredients — save new ones to library, sync categories, replace rows
       const ings = E.ings.filter(g => g.name.trim());
-      const otherCat = S.categories.find(c => c.name === '其他');
       for (const g of ings) {
+        const catId = g.catId ?? otherCatId;
         if (!g.libId) {
-          const existing = S.library.find(x => x.name === g.name.trim());
-          if (existing) g.libId = existing.id;
-          else {
-            const { data, error } = await sb.from('ingredients_library')
-              .upsert({ name: g.name.trim(), default_unit: g.unit.trim() || null, category_id: otherCat?.id || null }, { onConflict: 'name' })
-              .select('*, categories(name)').single();
-            if (!error && data) { g.libId = data.id; S.library.push(data); }
+          const nm = g.name.trim();
+          let lib = S.library.find(x => x.name === nm);
+          if (!lib) {
+            // ignoreDuplicates: never overwrite an existing row's category from here
+            const { data } = await sb.from('ingredients_library')
+              .upsert({ name: nm, default_unit: g.unit.trim() || null, category_id: catId }, { onConflict: 'name', ignoreDuplicates: true })
+              .select('*, categories(name)').maybeSingle();
+            lib = data;
+            if (!lib) { // name existed in DB but not in local cache
+              const { data: ex } = await sb.from('ingredients_library').select('*, categories(name)').eq('name', nm).maybeSingle();
+              lib = ex;
+            }
+            if (lib && !S.library.some(x => x.id === lib.id)) S.library.push(lib);
+          }
+          if (lib) g.libId = lib.id;
+        }
+        if (g.libId && g.catTouched && catId != null) {
+          const lib = S.library.find(x => x.id === g.libId);
+          if (lib && lib.category_id !== catId) {
+            const { error } = await sb.from('ingredients_library').update({ category_id: catId }).eq('id', g.libId);
+            if (error) throw error;
+            lib.category_id = catId;
+            lib.categories = { name: S.categories.find(c => c.id === catId)?.name || null };
           }
         }
       }

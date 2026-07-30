@@ -50,6 +50,15 @@
   <div class="navitem" data-nav="settings"><span class="ic">👤</span>我的</div>
 </nav>
 
+<!-- 相片放大檢視（lightbox） -->
+<div class="lightbox" id="lightbox" hidden role="dialog" aria-modal="true" aria-label="相片檢視">
+  <button class="lb-btn lb-close" id="lbClose" aria-label="關閉">✕</button>
+  <button class="lb-btn lb-prev" id="lbPrev" aria-label="上一張">‹</button>
+  <img id="lbImg" alt="">
+  <button class="lb-btn lb-next" id="lbNext" aria-label="下一張">›</button>
+  <div class="lb-counter" id="lbCounter" aria-live="polite"></div>
+</div>
+
 <div class="toast" id="toast" hidden></div>
 
 <datalist id="unitlist"></datalist>

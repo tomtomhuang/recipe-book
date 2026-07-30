@@ -146,13 +146,16 @@ async function renderDetail(id) {
   r.recipe_ingredients.sort((a, b) => a.sort_order - b.sort_order);
   r.recipe_steps.sort((a, b) => a.sort_order - b.sort_order);
   r.recipe_references.sort((a, b) => a.sort_order - b.sort_order);
+  // 成品相 — fetched separately so the app still works if the table isn't created yet
+  const { data: galPh } = await sb.from('recipe_photos').select('*').eq('recipe_id', id).order('sort_order');
+  r.recipe_photos = galPh || [];
   S.detail = r;
   S.servings = r.base_servings || 2;
 
   v.innerHTML = `
     <button class="back" onclick="history.length>1?history.back():nav('#/')">← 返回</button>
     <div class="hero">
-      ${r.cover_photo_url ? `<img src="${esc(r.cover_photo_url)}">` : `<div class="noimg">🍲</div>`}
+      ${r.cover_photo_url ? `<img class="zoomable" src="${esc(r.cover_photo_url)}" tabindex="0" alt="${esc(r.title)}">` : `<div class="noimg">🍲</div>`}
       <div class="hero-tags">${r.tagNames.map(t => `<span class="mini-tag">${esc(t)}</span>`).join('')}</div>
     </div>
     <h1 class="detail-title">${esc(r.title)}</h1>
@@ -177,8 +180,15 @@ async function renderDetail(id) {
     ${r.recipe_steps.length ? `<div class="section"><h3>製作方法</h3>${r.recipe_steps.map((s, i) => `
       <div class="step"><div class="step-num">${i + 1}</div><div class="step-body">
         <div class="step-text">${esc(s.text)}</div>
-        ${s.photo_url ? `<img class="step-photo" src="${esc(s.photo_url)}" loading="lazy">` : ''}
+        ${s.photo_url ? `<img class="step-photo zoomable" src="${esc(s.photo_url)}" loading="lazy" tabindex="0" alt="步驟 ${i + 1} 相片">` : ''}
       </div></div>`).join('')}</div>` : ''}
+    ${r.recipe_photos.length ? `<div class="section"><h3>成品相</h3>
+      <div class="gallery-strip">${r.recipe_photos.map((p, i) => `
+        <figure class="gallery-item">
+          <img class="gallery-thumb zoomable" src="${esc(p.photo_url)}" loading="lazy" tabindex="0" data-gi="${i}" alt="${esc(p.caption || '成品相 ' + (i + 1))}">
+          ${p.caption ? `<figcaption>${esc(p.caption)}</figcaption>` : ''}
+        </figure>`).join('')}
+      </div></div>` : ''}
     ${r.recipe_references.length ? `<div class="section"><h3>靈感來源</h3>${r.recipe_references.map(f => `
       <a class="ref-link" href="${esc(f.url)}" target="_blank" rel="noopener">🔗 ${esc(f.label || f.url)}</a>`).join('')}</div>` : ''}
     ${r.notes ? `<div class="section"><h3>心得 · 筆記</h3><div class="note-box">${esc(r.notes)}</div></div>` : ''}`;
@@ -187,6 +197,23 @@ async function renderDetail(id) {
     $('#servDown').onclick = () => { S.servings = Math.max(1, S.servings - 1); renderIngs(); };
     $('#servUp').onclick = () => { S.servings++; renderIngs(); };
     renderIngs();
+  }
+
+  // Feature 4 — one continuous lightbox set: [cover] + [gallery] + [step photos]
+  const lbImages = [];
+  if (r.cover_photo_url) lbImages.push({ url: r.cover_photo_url, alt: r.title });
+  r.recipe_photos.forEach((p, i) => lbImages.push({ url: p.photo_url, alt: p.caption || `成品相 ${i + 1}` }));
+  r.recipe_steps.filter(s2 => s2.photo_url).forEach(s2 => lbImages.push({ url: s2.photo_url, alt: `步驟 ${s2.step_number} 相片` }));
+  const coverN = r.cover_photo_url ? 1 : 0;
+  const galN = r.recipe_photos.length;
+  const openZoom = (idx, el) => openLightbox(lbImages, idx, el);
+  const heroImg = $('.hero img.zoomable', v);
+  if (heroImg) bindZoom(heroImg, () => 0);
+  $$('.gallery-thumb', v).forEach(im => bindZoom(im, () => coverN + (+im.dataset.gi)));
+  $$('.step-photo', v).forEach((im, i) => bindZoom(im, () => coverN + galN + i));
+  function bindZoom(el, idxFn) {
+    el.onclick = () => openZoom(idxFn(), el);
+    el.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openZoom(idxFn(), el); } };
   }
   if (isAdmin()) {
     $('#favBtn').onclick = async () => {
@@ -202,7 +229,7 @@ async function renderDetail(id) {
       const { error: e3 } = await sb.from('recipes').delete().eq('id', r.id);
       if (e3) return toast(friendlyError(e3));
       // best-effort photo cleanup
-      const paths = [r.cover_photo_url, ...r.recipe_steps.map(s2 => s2.photo_url)]
+      const paths = [r.cover_photo_url, ...r.recipe_steps.map(s2 => s2.photo_url), ...r.recipe_photos.map(p => p.photo_url)]
         .filter(Boolean).map(urlToStoragePath).filter(Boolean);
       if (paths.length) sb.storage.from(BUCKET).remove(paths);
       toast('已刪除');
@@ -235,6 +262,70 @@ function urlToStoragePath(url) {
   const m = String(url).match(new RegExp(`/object/public/${BUCKET}/(.+)$`));
   return m ? decodeURIComponent(m[1]) : null;
 }
+
+// ---------- lightbox（Feature 4 — 所有相片點按放大） ----------
+const LB = { images: [], idx: 0, trigger: null, tx: 0, ty: 0 };
+const lbEl = () => $('#lightbox');
+
+function openLightbox(images, idx, trigger) {
+  if (!images.length) return;
+  LB.images = images; LB.idx = idx; LB.trigger = trigger || null;
+  document.body.classList.add('lb-open');
+  lbEl().hidden = false;
+  lbShow();
+  $('#lbClose').focus();
+}
+
+function closeLightbox() {
+  lbEl().hidden = true;
+  document.body.classList.remove('lb-open');
+  if (LB.trigger && document.contains(LB.trigger)) LB.trigger.focus();
+  LB.trigger = null;
+}
+
+function lbShow() {
+  const im = LB.images[LB.idx];
+  $('#lbImg').src = im.url;
+  $('#lbImg').alt = im.alt || '';
+  $('#lbCounter').textContent = `${LB.idx + 1} / ${LB.images.length}`;
+  $('#lbPrev').disabled = LB.idx === 0;
+  $('#lbNext').disabled = LB.idx === LB.images.length - 1;
+  const single = LB.images.length <= 1;
+  $('#lbPrev').hidden = single; $('#lbNext').hidden = single;
+}
+
+function lbStep(d) {
+  const n = LB.idx + d;
+  if (n < 0 || n >= LB.images.length) return;
+  LB.idx = n; lbShow();
+}
+
+(function initLightbox() {
+  const lb = lbEl();
+  $('#lbClose').onclick = closeLightbox;
+  $('#lbPrev').onclick = () => lbStep(-1);
+  $('#lbNext').onclick = () => lbStep(1);
+  lb.addEventListener('click', e => { if (e.target === lb) closeLightbox(); });
+  document.addEventListener('keydown', e => {
+    if (lb.hidden) return;
+    if (e.key === 'Escape') { e.preventDefault(); closeLightbox(); return; }
+    if (e.key === 'ArrowLeft') { e.preventDefault(); lbStep(-1); return; }
+    if (e.key === 'ArrowRight') { e.preventDefault(); lbStep(1); return; }
+    if (e.key === 'Tab') { // focus trap
+      const f = [$('#lbClose'), $('#lbPrev'), $('#lbNext')].filter(b => !b.hidden && !b.disabled);
+      const i = f.indexOf(document.activeElement);
+      e.preventDefault();
+      const n = e.shiftKey ? (i <= 0 ? f.length - 1 : i - 1) : (i === f.length - 1 ? 0 : i + 1);
+      f[n].focus();
+    }
+  });
+  lb.addEventListener('touchstart', e => { LB.tx = e.touches[0].clientX; LB.ty = e.touches[0].clientY; }, { passive: true });
+  lb.addEventListener('touchend', e => {
+    const dx = e.changedTouches[0].clientX - LB.tx, dy = e.changedTouches[0].clientY - LB.ty;
+    if (Math.abs(dy) > 70 && Math.abs(dy) > Math.abs(dx)) { if (dy > 0) closeLightbox(); return; }
+    if (Math.abs(dx) > 40) lbStep(dx < 0 ? 1 : -1);
+  }, { passive: true });
+})();
 
 // ---------- image compression ----------
 function compressImage(file, maxDim = 1600, quality = 0.82) {
@@ -270,8 +361,12 @@ async function renderEdit(id) {
   let E = {
     id: id ? Number(id) : null, title: '', prep: '', cook: '', servings: '',
     coverUrl: null, coverBlob: null, tags: [], ings: [], steps: [], refs: [], notes: '',
+    photos: [], _hadPhotos: false,
   };
   const otherCatId = S.categories.find(c => c.name === '其他')?.id ?? null;
+  // Feature 5 — 曾在食譜輸入過、但未入食材庫的名稱（快取於表單開啟時）
+  const adhocNames = [...new Set(S.recipes.flatMap(r2 => (r2.recipe_ingredients || []).map(i2 => i2.name)).filter(Boolean))]
+    .filter(n => !S.library.some(x => x.name === n)).sort((a, b) => a.localeCompare(b, 'zh-Hant'));
   const libCatId = libId => S.library.find(x => x.id === libId)?.category_id ?? otherCatId;
   const blankIng = () => ({ name: '', amt: '', unit: '', note: '', libId: null, catId: otherCatId, catTouched: false });
   if (id) {
@@ -288,6 +383,9 @@ async function renderEdit(id) {
       .map(s => ({ text: s.text, photoUrl: s.photo_url, photoBlob: null }));
     E.refs = r.recipe_references.sort((a, b) => a.sort_order - b.sort_order)
       .map(f => ({ url: f.url, label: f.label || '' }));
+    const { data: galPh } = await sb.from('recipe_photos').select('*').eq('recipe_id', id).order('sort_order');
+    E.photos = (galPh || []).map(p => ({ url: p.photo_url, blob: null, caption: p.caption || null }));
+    E._hadPhotos = E.photos.length > 0;
   }
   if (!E.ings.length) E.ings.push(blankIng());
   if (!E.steps.length) E.steps.push({ text: '', photoUrl: null, photoBlob: null });
@@ -327,6 +425,12 @@ async function renderEdit(id) {
       <button class="add-line-btn" id="addStep">＋ 加步驟</button>
     </div>
     <div class="field">
+      <div class="field-label">成品相 <span class="opt">選填 · 可加多張</span></div>
+      <div class="gallery-edit" id="galList"></div>
+      <button class="add-line-btn" id="addGal">＋ 加成品相</button>
+      <input type="file" accept="image/*" multiple hidden id="galFile">
+    </div>
+    <div class="field">
       <div class="field-label">靈感來源 <span class="opt">選填</span></div>
       <div id="refList"></div>
       <button class="add-line-btn" id="addRef">＋ 加連結</button>
@@ -352,11 +456,20 @@ async function renderEdit(id) {
   }
   bindCover();
 
-  renderTags(); renderIngRows(); renderStepRows(); renderRefRows();
+  renderTags(); renderIngRows(); renderStepRows(); renderGalRows(); renderRefRows();
 
   $('#addIng').onclick = () => { E.ings.push(blankIng()); renderIngRows(); };
   $('#addStep').onclick = () => { E.steps.push({ text: '', photoUrl: null, photoBlob: null }); renderStepRows(); };
   $('#addRef').onclick = () => { E.refs.push({ url: '', label: '' }); renderRefRows(); };
+  $('#addGal').onclick = () => $('#galFile').click();
+  $('#galFile').onchange = async e => {
+    const files = [...e.target.files]; e.target.value = '';
+    for (const f of files) {
+      try { E.photos.push({ url: null, blob: await compressImage(f, 1600), caption: null }); }
+      catch (err) { toast(friendlyError(err)); }
+    }
+    renderGalRows();
+  };
   $('#edCancel').onclick = () => { if (confirm('放棄目前的修改？')) history.back(); };
   $('#edSave').onclick = saveRecipe;
 
@@ -421,11 +534,22 @@ async function renderEdit(id) {
           html += `<div class="ac-cat">${esc(cn)}</div>` + byCat[cn].map(x =>
             `<div class="ac-item" data-id="${x.id}"><span>${esc(x.name)}</span>${x.default_unit ? `<span class="u">預設 ${esc(x.default_unit)}</span>` : ''}</div>`).join('');
         }
-        const exact = S.library.some(x => x.name === q);
+        // Feature 5 — 曾用過但未入庫的名稱（撞名時以食材庫為準，上面已列出）
+        const adhoc = adhocNames.filter(n => n.includes(q) && !S.library.some(x => x.name === n));
+        if (adhoc.length) {
+          html += `<div class="ac-cat">曾用過</div>` + adhoc.map(n =>
+            `<div class="ac-item" data-n="${esc(n)}"><span>${esc(n)}</span></div>`).join('');
+        }
+        const exact = S.library.some(x => x.name === q) || adhoc.includes(q);
         if (!exact) html += `<div class="ac-new">＋ 新增「${esc(q)}」為新食材</div>`;
         ac.innerHTML = html; ac.classList.add('show');
         $$('.ac-item', ac).forEach(it => it.onmousedown = e => {
           e.preventDefault();
+          if (it.dataset.n != null) { // ad-hoc name — 儲存時會自動入庫
+            g.name = it.dataset.n; g.libId = null;
+            nameIn.value = g.name; ac.classList.remove('show');
+            $('.ing-amt-in', row).focus(); return;
+          }
           const lib = S.library.find(x => x.id === +it.dataset.id);
           g.name = lib.name; g.libId = lib.id;
           g.catId = lib.category_id ?? otherCatId; g.catTouched = false;
@@ -470,6 +594,25 @@ async function renderEdit(id) {
       $('.st-del', row).onclick = () => { if (s.text && !confirm('刪除這個步驟？')) return; E.steps.splice(i, 1); if (!E.steps.length) E.steps.push({ text: '', photoUrl: null, photoBlob: null }); renderStepRows(); };
       $('.mv-up', row).onclick = () => { if (i > 0) { [E.steps[i - 1], E.steps[i]] = [E.steps[i], E.steps[i - 1]]; renderStepRows(); } };
       $('.mv-dn', row).onclick = () => { if (i < E.steps.length - 1) { [E.steps[i + 1], E.steps[i]] = [E.steps[i], E.steps[i + 1]]; renderStepRows(); } };
+    });
+  }
+
+  // ----- gallery photos (成品相) -----
+  function renderGalRows() {
+    $('#galList').innerHTML = E.photos.map((p, i) => `
+      <div class="gal-item" data-i="${i}">
+        <img src="${p.blob ? URL.createObjectURL(p.blob) : esc(p.url)}" alt="成品相 ${i + 1}">
+        <button class="g-rm" title="移除">✕</button>
+        <div class="gal-tools">
+          <button class="g-left" title="向前移" ${i === 0 ? 'disabled' : ''}>◀</button>
+          <button class="g-right" title="向後移" ${i === E.photos.length - 1 ? 'disabled' : ''}>▶</button>
+        </div>
+      </div>`).join('');
+    $$('#galList .gal-item').forEach(row => {
+      const i = +row.dataset.i;
+      $('.g-rm', row).onclick = () => { E.photos.splice(i, 1); renderGalRows(); };
+      $('.g-left', row).onclick = () => { [E.photos[i - 1], E.photos[i]] = [E.photos[i], E.photos[i - 1]]; renderGalRows(); };
+      $('.g-right', row).onclick = () => { [E.photos[i + 1], E.photos[i]] = [E.photos[i], E.photos[i + 1]]; renderGalRows(); };
     });
   }
 
@@ -586,7 +729,25 @@ async function renderEdit(id) {
         if (error) throw error;
       }
 
-      // 6. references
+      // 6. gallery photos (成品相) — separate try so a missing recipe_photos table
+      // doesn't lose the rest of the save
+      if (E.photos.length || E._hadPhotos) {
+        try {
+          for (const p of E.photos) if (p.blob) { p.url = await uploadPhoto(p.blob, 'gallery'); p.blob = null; }
+          const { error: gDel } = await sb.from('recipe_photos').delete().eq('recipe_id', recipeId);
+          if (gDel) throw gDel;
+          if (E.photos.length) {
+            const { error: gIns } = await sb.from('recipe_photos').insert(E.photos.map((p, i) =>
+              ({ recipe_id: recipeId, photo_url: p.url, caption: p.caption || null, sort_order: i })));
+            if (gIns) throw gIns;
+          }
+        } catch (gErr) {
+          console.error(gErr);
+          toast('食譜已儲存，但成品相未能儲存 — 請確認資料庫已建立 recipe_photos 資料表', 6000);
+        }
+      }
+
+      // 7. references
       const refs = E.refs.filter(f => f.url.trim());
       await sb.from('recipe_references').delete().eq('recipe_id', recipeId);
       if (refs.length) {
